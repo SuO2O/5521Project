@@ -6,7 +6,8 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "coverage": "hardhat coverage"
+    "coverage": "hardhat coverage",
+    "params": "node scripts/generateSwapParams.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
