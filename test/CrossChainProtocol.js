@@ -102,6 +102,35 @@ describe("Cross-chain coordinator (Task B)", function () {
       expect(await ethers.provider.getBalance(await ctx.ethHtlc.getAddress())).to.equal(0n);
     });
 
+    it("keeps the MST deadline exactly the margin after the ETH deadline", async function () {
+      const ctx = await loadFixture(deployFixture);
+
+      const result = await protocol.executeSwap({
+        mstChain: ctx.mstChain,
+        ethChain: ctx.ethChain,
+        ...SWAP_OPTIONS,
+      });
+
+      // The ETH deadline is derived from the MST deadline, so a slow second lock
+      // cannot shrink the safety window.
+      expect(result.mst.timelock - result.eth.timelock).to.equal(SWAP_OPTIONS.marginSeconds);
+    });
+
+    it("refuses an ETH lock that the margin would leave without time", async function () {
+      const ctx = await loadFixture(deployFixture);
+
+      const error = await rejection(
+        protocol.executeSwap({
+          mstChain: ctx.mstChain,
+          ethChain: ctx.ethChain,
+          ...SWAP_OPTIONS,
+          timelockSeconds: 60,
+          marginSeconds: 120,
+        })
+      );
+      expect(error.message).to.match(/Too late to lock the ETH leg safely/);
+    });
+
     it("verifies the first lock before the counterparty commits ETH", async function () {
       const ctx = await loadFixture(deployFixture);
 

@@ -90,6 +90,55 @@ button.link {
 .grid { display: grid; gap: 14px; }
 .grid.inputs { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 12px; }
 .grid.legs { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+
+.mini {
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
+.mini h3 { margin: 0 0 4px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.mini p { margin: 0; font-size: 12px; }
+.actor.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.actor .row { margin-top: 12px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin: 4px 0 12px; cursor: pointer; }
+.toggle input { accent-color: var(--accent); }
+.toggle:hover { color: var(--text); }
+
+.feedback {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12.5px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.feedback strong { display: block; margin-bottom: 4px; font-size: 13px; }
+.feedback > div { margin-top: 3px; color: var(--muted); }
+.feedback.ok { border-left-color: var(--ok); background: rgba(55, 201, 138, 0.12); }
+.feedback.ok strong { color: var(--ok); }
+.feedback.err { border-left-color: var(--err); background: rgba(255, 107, 107, 0.12); }
+.feedback.err strong { color: var(--err); }
+.feedback.warn { border-left-color: var(--warn); background: rgba(240, 180, 41, 0.12); }
+.feedback.warn strong { color: var(--warn); }
+.feedback.info { border-left-color: var(--accent); background: rgba(79, 156, 255, 0.12); }
+.feedback.info strong { color: var(--accent); }
+dl.kv.small { grid-template-columns: 120px 1fr; font-size: 12px; margin-top: 10px; }
+.badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+.muted { color: var(--muted); }
 
 label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
 input {
@@ -152,3 +201,4 @@ ol#log time { color: var(--muted); margin-right: 8px; font-size: 11px; }
 ol#log a { color: var(--accent); margin-left: 6px; }
 
 footer { max-width: 1080px; margin: 8px auto 0; color: var(--muted); font-size: 12px; }
+

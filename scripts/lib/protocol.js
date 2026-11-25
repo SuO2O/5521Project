@@ -252,9 +252,20 @@ async function executeSwap({
   const mstNow = (await mstChain.latestBlock()).timestamp;
   const ethNow = (await ethChain.latestBlock()).timestamp;
   const mstTimelock = mstNow + timelockSeconds + marginSeconds;
-  const ethTimelock = ethNow + timelockSeconds;
-  if (mstTimelock <= mstNow + 60 || ethTimelock <= ethNow + 60) {
+  // The ETH leg must expire *before* the MST leg by at least the margin, however
+  // long Bob waits before locking. Take the margin off the MST deadline instead of
+  // adding it to the ETH clock; otherwise a slow second lock shrinks (or reverses)
+  // the safety window.
+  const ethTimelock = mstTimelock - marginSeconds;
+  if (mstTimelock <= mstNow + 60) {
     throw new Error("The timelock must leave at least a minute before expiry.");
+  }
+  if (ethTimelock <= ethNow + 60) {
+    throw new Error(
+      `Too late to lock the ETH leg safely: the MST expires at ${formatTimestamp(mstTimelock)}, ` +
+        `which leaves less than a minute for the ETH leg after the ${marginSeconds}s margin. ` +
+        `Start a new swap with a longer timelock.`
+    );
   }
 
   const mstSwapId = newSwapId();

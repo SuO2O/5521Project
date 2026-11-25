@@ -1,4 +1,4 @@
-// Central configuration for the Part B cross-chain scripts.
+﻿// Central configuration for the Part B cross-chain scripts.
 //
 // Everything is read from 5521Project/.env. Private keys are only ever turned
 // into signer objects in chain.js; no module prints a key, an RPC URL or the
@@ -89,7 +89,7 @@ function allChains() {
 
 function amountConfig() {
   return {
-    mst: envValue("ERC20_AMOUNT") || "100",
+    mst: envValue("ERC20_AMOUNT") || "1",
     eth: envValue("ETH_AMOUNT") || "0.001",
   };
 }
@@ -199,3 +199,4 @@ module.exports = {
   timelockMarginSeconds,
   timelockSeconds,
 };
+

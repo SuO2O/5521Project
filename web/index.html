@@ -17,8 +17,8 @@
         <span id="network-status" class="pill muted">no network</span>
         <button id="connect" class="primary">Connect MetaMask</button>
         <button id="disconnect" class="ghost hidden">Disconnect</button>
-        <button id="switch-sepolia" class="ghost">Sepolia</button>
-        <button id="switch-arbitrum" class="ghost">Arbitrum</button>
+        <button id="switch-sepolia" class="ghost">Switch to Sepolia</button>
+        <button id="switch-arbitrum" class="ghost">Switch to Arbitrum</button>
       </div>
     </header>
 
@@ -60,58 +60,146 @@
       <section class="card highlight">
         <h2>2 · Next action</h2>
         <p id="next-action">Connect MetaMask to begin.</p>
-      </section>
-
-      <section class="grid legs">
-        <article class="card leg">
-          <h2>MST leg <span class="chain">Ethereum Sepolia</span></h2>
-          <p class="state" id="mst-state">not created</p>
-          <dl class="kv">
-            <dt>Amount</dt><dd id="mst-leg-amount">—</dd>
-            <dt>Sender → recipient</dt><dd id="mst-leg-roles">—</dd>
-            <dt>Deadline</dt><dd id="mst-leg-deadline">—</dd>
-            <dt>Hashlock match</dt><dd id="mst-leg-hashlock">—</dd>
-            <dt>Contract</dt><dd id="mst-leg-contract">—</dd>
-          </dl>
-          <p class="balances" id="mst-balances"></p>
-          <div class="row wrap">
-            <button id="approve-mst" class="ghost">Approve MST</button>
-            <button id="lock-mst" class="primary">Lock MST</button>
-            <button id="claim-mst" class="primary">Claim MST</button>
-            <button id="refund-mst" class="danger">Refund MST</button>
-          </div>
-          <p class="tx" id="mst-tx"></p>
-        </article>
-
-        <article class="card leg">
-          <h2>ETH leg <span class="chain">Arbitrum Sepolia</span></h2>
-          <p class="state" id="eth-state">not created</p>
-          <dl class="kv">
-            <dt>Amount</dt><dd id="eth-leg-amount">—</dd>
-            <dt>Sender → recipient</dt><dd id="eth-leg-roles">—</dd>
-            <dt>Deadline</dt><dd id="eth-leg-deadline">—</dd>
-            <dt>Hashlock match</dt><dd id="eth-leg-hashlock">—</dd>
-            <dt>Contract</dt><dd id="eth-leg-contract">—</dd>
-          </dl>
-          <p class="balances" id="eth-balances"></p>
-          <div class="row wrap">
-            <button id="lock-eth" class="primary">Lock ETH</button>
-            <button id="claim-eth" class="primary">Claim ETH</button>
-            <button id="refund-eth" class="danger">Refund ETH</button>
-          </div>
-          <p class="tx" id="eth-tx"></p>
-        </article>
+        <div id="global-feedback" class="feedback hidden" role="status" aria-live="polite"></div>
       </section>
 
       <section class="card">
-        <h2>3 · Activity</h2>
+        <h2>3 · Alice and Bob</h2>
+        <p class="hint">
+          Pick the actor for the next step. The buttons are signed by that account; the
+          network buttons in the header switch between Sepolia and Arbitrum.
+        </p>
+        <label class="toggle">
+          <input id="show-all-actions" type="checkbox" />
+          Show every action (demo) — invalid attempts are sent and revert on-chain
+        </label>
+        <div class="grid two">
+          <article class="mini actor" id="actor-alice">
+            <h3>Alice <span id="actor-alice-badge" class="badge hidden">acting</span></h3>
+            <p class="muted">locks MST · receives ETH</p>
+            <dl class="kv small">
+              <dt>Address</dt><dd><code id="actor-alice-address">—</code></dd>
+              <dt>ETH Sepolia</dt><dd id="actor-alice-eth-sepolia">—</dd>
+              <dt>ETH Arbitrum</dt><dd id="actor-alice-eth-arbitrum">—</dd>
+              <dt>MST Sepolia</dt><dd id="actor-alice-mst">—</dd>
+            </dl>
+            <div class="row wrap">
+              <button id="act-as-alice" class="ghost hidden">Act as Alice</button>
+              <button id="approve-mst" class="ghost hidden">Approve MST</button>
+              <button id="lock-mst" class="primary hidden">Lock MST</button>
+              <button id="claim-eth" class="primary hidden">Claim ETH</button>
+              <button id="refund-mst" class="danger hidden">Refund MST</button>
+            </div>
+            <div id="actor-alice-feedback" class="feedback hidden" role="status" aria-live="polite"></div>
+            <p class="tx" id="actor-alice-note"></p>
+          </article>
+
+          <article class="mini actor" id="actor-bob">
+            <h3>Bob <span id="actor-bob-badge" class="badge hidden">acting</span></h3>
+            <p class="muted">locks ETH · receives MST</p>
+            <dl class="kv small">
+              <dt>Address</dt><dd><code id="actor-bob-address">—</code></dd>
+              <dt>ETH Sepolia</dt><dd id="actor-bob-eth-sepolia">—</dd>
+              <dt>ETH Arbitrum</dt><dd id="actor-bob-eth-arbitrum">—</dd>
+              <dt>MST Sepolia</dt><dd id="actor-bob-mst">—</dd>
+            </dl>
+            <div class="row wrap">
+              <button id="act-as-bob" class="ghost hidden">Act as Bob</button>
+              <button id="verify-mst" class="ghost hidden">Verify Alice's lock</button>
+              <button id="lock-eth" class="primary hidden">Lock ETH</button>
+              <button id="claim-mst" class="primary hidden">Claim MST</button>
+              <button id="refund-eth" class="danger hidden">Refund ETH</button>
+            </div>
+            <div id="actor-bob-feedback" class="feedback hidden" role="status" aria-live="polite"></div>
+            <p class="tx" id="actor-bob-note"></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4 · Locks</h2>
+        <div class="grid two">
+          <article class="mini">
+            <h3>MST lock <span class="chain">Ethereum Sepolia</span></h3>
+            <p class="state" id="mst-state">not created</p>
+            <dl class="kv small">
+              <dt>Amount</dt><dd id="mst-leg-amount">—</dd>
+              <dt>Sender → recipient</dt><dd id="mst-leg-roles">—</dd>
+              <dt>Deadline</dt><dd id="mst-leg-deadline">—</dd>
+              <dt>Hashlock match</dt><dd id="mst-leg-hashlock">—</dd>
+              <dt>Contract</dt><dd id="mst-leg-contract">—</dd>
+            </dl>
+            <p class="tx" id="mst-tx"></p>
+          </article>
+
+          <article class="mini">
+            <h3>ETH lock <span class="chain">Arbitrum Sepolia</span></h3>
+            <p class="state" id="eth-state">not created</p>
+            <dl class="kv small">
+              <dt>Amount</dt><dd id="eth-leg-amount">—</dd>
+              <dt>Sender → recipient</dt><dd id="eth-leg-roles">—</dd>
+              <dt>Deadline</dt><dd id="eth-leg-deadline">—</dd>
+              <dt>Hashlock match</dt><dd id="eth-leg-hashlock">—</dd>
+              <dt>Contract</dt><dd id="eth-leg-contract">—</dd>
+            </dl>
+            <p class="tx" id="eth-tx"></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>5 · Chains</h2>
+        <p class="hint">
+          “Escrow holds” is the total across every lock the escrow has ever created, so a
+          finished swap leaves it at 0. A non-zero value means an older lock was never
+          claimed or refunded; once its timelock expires, <code>npm run recover -- --execute</code>
+          refunds it to its sender.
+        </p>
+        <div class="grid two">
+          <article class="mini">
+            <h3>Ethereum Sepolia</h3>
+            <dl class="kv small">
+              <dt>Chain ID</dt><dd id="chain-sepolia-id">—</dd>
+              <dt>Latest block</dt><dd id="chain-sepolia-block">—</dd>
+              <dt>Block time</dt><dd id="chain-sepolia-time">—</dd>
+              <dt>Base fee</dt><dd id="chain-sepolia-basefee">—</dd>
+              <dt>Escrow</dt><dd id="chain-sepolia-escrow">—</dd>
+              <dt>Escrow holds</dt><dd id="chain-sepolia-escrow-balance">—</dd>
+              <dt>MST token</dt><dd id="chain-sepolia-token">—</dd>
+              <dt>MST held</dt><dd id="chain-sepolia-token-balance">—</dd>
+              <dt>Read</dt><dd id="chain-sepolia-status">—</dd>
+            </dl>
+            <div class="row wrap" style="margin-top: 10px">
+              <button id="recover-mst" class="ghost">Refund held MST</button>
+            </div>
+            <p class="tx">Scans recent <code>Locked</code> events for expired MST locks sent by Alice and refunds them to her.</p>
+            <div id="recover-feedback" class="feedback hidden" role="status" aria-live="polite"></div>
+          </article>
+          <article class="mini">
+            <h3>Arbitrum Sepolia</h3>
+            <dl class="kv small">
+              <dt>Chain ID</dt><dd id="chain-arbitrum-id">—</dd>
+              <dt>Latest block</dt><dd id="chain-arbitrum-block">—</dd>
+              <dt>Block time</dt><dd id="chain-arbitrum-time">—</dd>
+              <dt>Base fee</dt><dd id="chain-arbitrum-basefee">—</dd>
+              <dt>Escrow</dt><dd id="chain-arbitrum-escrow">—</dd>
+              <dt>Escrow holds</dt><dd id="chain-arbitrum-escrow-balance">—</dd>
+              <dt>Read</dt><dd id="chain-arbitrum-status">—</dd>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>6 · Activity</h2>
         <ol id="log"></ol>
       </section>
 
       <footer>
         <p>
-          Local demo page. MetaMask signs every transaction; private keys are never sent to this page.
-          The local server exposes only public addresses and proxies read-only RPC calls.
+          MetaMask signs every transaction; the acting account is selected with the
+          <em>Act as</em> buttons. No private key ever reaches this page, and the page never talks to
+          a testnet directly: reads go through the local proxy.
         </p>
       </footer>
     </main>
@@ -121,3 +209,4 @@
     <script src="/app.js"></script>
   </body>
 </html>
+

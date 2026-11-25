@@ -1,4 +1,4 @@
-// Task C: serve the browser UI and proxy read-only RPC calls.
+﻿// Task C: serve the browser UI and proxy read-only RPC calls.
 //
 //   npm run ui            (then open http://127.0.0.1:8080)
 //
@@ -83,7 +83,7 @@ function publicConfig() {
       marginSeconds: timelockMarginSeconds(),
     };
   } catch (error) {
-    defaults = { mstAmount: "100", ethAmount: "0.001", timelockSeconds: 3600, marginSeconds: 600 };
+    defaults = { mstAmount: "1", ethAmount: "0.001", timelockSeconds: 3600, marginSeconds: 600 };
     warnings.push(error.message);
   }
 
@@ -146,6 +146,26 @@ async function proxyRpc(req, res, chainName) {
       body,
     });
     const text = await upstream.text();
+
+    // Turn provider-level failures (429, 5xx) into a JSON-RPC error with a
+    // readable message, so the page can say "rate limited" instead of
+    // "missing response for request".
+    if (!upstream.ok) {
+      let ids = null;
+      try {
+        const parsed = JSON.parse(body);
+        ids = Array.isArray(parsed) ? parsed.map((entry) => entry.id ?? null) : parsed.id ?? null;
+      } catch {
+        // Body was not JSON; fall back to a null id.
+      }
+      const message = `upstream RPC HTTP ${upstream.status}${upstream.status === 429 ? " (rate limited by the provider)" : ""}`;
+      const payload = Array.isArray(ids)
+        ? ids.map((id) => ({ jsonrpc: "2.0", id, error: { code: -32000, message } }))
+        : { jsonrpc: "2.0", id: ids, error: { code: -32000, message } };
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      return res.end(JSON.stringify(payload));
+    }
+
     res.writeHead(upstream.status, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(text);
   } catch (error) {
@@ -225,6 +245,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  sepolia     ${config.chains.sepolia.htlc || "(not deployed)"}  ERC20HTLC`);
   console.log(`  arbitrum    ${config.chains.arbitrum.htlc || "(not deployed)"}  ETHHTLC`);
   console.log("  rpc         proxied from .env; the browser only sees this server");
+  console.log("  signer      MetaMask (the connected account is the acting role)");
   if (config.warnings.length > 0) {
     console.log("");
     for (const warning of config.warnings) console.log(`  [!!] ${warning}`);
@@ -232,3 +253,4 @@ server.listen(PORT, HOST, () => {
   console.log("");
   console.log("  press Ctrl+C to stop");
 });
+
