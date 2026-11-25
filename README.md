@@ -1,17 +1,17 @@
 # COMP5521 2026 Project — cross-chain HTLC swap
 
-Implementation of **Task A (HTLC smart contracts, 25 marks)** and
-**Task B (cross-chain protocol and scripts, 20 marks)** of
-`COMP5521_HTLC_Project_2026.pdf`. Task C (browser UI) builds on the scripts and
-contracts described here.
+Implementation of **Task A (HTLC smart contracts, 25 marks)**,
+**Task B (cross-chain protocol and scripts, 20 marks)** and
+**Task C (browser UI, 10 marks)** of `COMP5521_HTLC_Project_2026.pdf`.
 
 | Task | Deliverable | Status |
 | --- | --- | --- |
 | A | `ERC20HTLC` (MST on Ethereum Sepolia) + `ETHHTLC` (native ETH on Arbitrum Sepolia) | implemented, 62 tests |
 | B | deploy + configuration check, swap coordinator, cross-chain observer, timeout recovery | implemented, 16 tests |
+| C | single-page MetaMask UI with a guided swap and recovery flow, served by a small local server | implemented, 7 shared-rule tests + smoke-tested page |
 
-78 tests pass locally (`npx hardhat test`). No test or script needs a public
-testnet except the deployment/swap commands themselves.
+85 tests pass locally (`npx hardhat test`). No test needs a public testnet; only
+the deployment and swap commands do.
 
 ## Project layout
 
@@ -21,6 +21,8 @@ contracts/
   ERC20HTLC.sol             MST escrow (ERC20 path), Ethereum Sepolia
   ETHHTLC.sol               native ETH escrow, Arbitrum Sepolia
   mocks/                    local test helpers (TestMST, re-entrant/rejecting recipients)
+shared/
+  htlc-core.js              protocol rules used by BOTH the scripts and the UI
 scripts/
   lib/config.js             chains, roles, timings, address/URL masking
   lib/chain.js              one handle per chain: provider, contracts, signers
@@ -39,10 +41,16 @@ scripts/
   claim.js                  claim, only while a claim is the valid action
   refund.js                 B4: refund expired locks (optionally waiting for expiry)
   generateSwapParams.js     prints .env values for a swap without deploying
+  serveWeb.js               C: serves the UI, exposes the config and read-only RPC proxy
+web/
+  index.html                the single page
+  app.js                    wallet, both-chain reads, guided actions, feedback
+  style.css                 styling
 test/
   ERC20HTLC.js              A1 / A3 / A4 / A5
   ETHHTLC.js                A2 / A3 / A4 / A5
   CrossChainProtocol.js     B2 / B3 / B4 coordinator logic
+  HtlcCore.js               shared rules (hashlock, states, formatting)
   helpers.js                fixtures and constants
 hardhat.config.js           Solidity 0.8.20, Sepolia + Arbitrum Sepolia
 ```
@@ -150,6 +158,93 @@ Every transaction goes through `lib/tx.js`, which waits for
 Refusals are typed (`ProtocolRefusal`, `code = "INVALID_ACTION"`) so the CLIs can
 report "this action is not valid now" instead of failing.
 
+## Task C: browser UI
+
+`npm run ui` starts a small local server and serves a single-page app at
+<http://127.0.0.1:8080> (`WEB_PORT` overrides the port). Plain HTML + CSS +
+JavaScript with `ethers`: no framework, no build step, and no private key ever
+reaches the page.
+
+```text
+MetaMask ──signs──► browser page ──reads──► local server ──JSON-RPC──► Sepolia / Arbitrum
+                        │
+                        └─ /shared/htlc-core.js — the same hashlock and state rules as the CLI
+```
+
+Two reasons for the server instead of opening `index.html` directly:
+
+1. The page must read **both** chains at once, while MetaMask is connected to
+   one. The server exposes `POST /api/rpc/<chain>`, used for reads only.
+2. The RPC URLs in `.env` embed API keys. `GET /api/config` returns public data
+   only (chain ids, addresses, ABIs, role addresses); the keys stay on the server.
+
+| Item | Where | What it does |
+| --- | --- | --- |
+| C1 wallet and network | header; `refreshWallet`, `switchNetwork` | connects MetaMask, shows the account and its role (Alice / Bob / unknown), switches to Sepolia or Arbitrum in one click, and adds the network to MetaMask if it is missing |
+| C2 setup and state | "Secret and amounts" and the two leg cards | balances (ETH on both chains, MST on Sepolia), escrow addresses linked to the explorers, swap ids, amounts, hashlock-match check, deadlines with live countdowns, and the MST approval |
+| C3 guided flow | "Next action" plus per-leg buttons | approve → lock MST → (Bob) lock ETH → (Alice) claim ETH → (Bob) claim MST; refunds become available only after the sender's deadline |
+| C4 feedback | activity log, badges, tooltips | pending → confirmed messages, decoded custom errors, transaction links, `Active` / `Claimed` / `Refunded` badges, last transaction per leg |
+
+Buttons are gated like the CLI: disabled with a tooltip when the connected account
+is wrong, the swap is not claimable, the timelock has not expired, or the
+allowance is already sufficient. Preimage, swap ids and amounts live in
+`localStorage`, so refreshing the page does not lose the swap.
+
+### Demo runbook
+
+**Before the slot** (two minutes):
+
+1. `npm run check` and `npm run verify` should both be green.
+2. MetaMask must contain the two accounts whose addresses equal `ALICE_ADDRESS`
+   and `BOB_ADDRESS` in `.env` — the page labels them *Alice* and *Bob*.
+   - Alice needs Sepolia ETH (approve, lock, claim) and Arbitrum ETH (claim gas).
+   - Bob needs Arbitrum ETH (the 0.001 ETH lock plus gas) and Sepolia ETH (claim gas).
+3. `npm run ui`, then open <http://127.0.0.1:8080>. The header should say
+   "not connected"; both chains are already read.
+
+**Scenario 1 — successful atomic swap** (about 2 minutes with 300 s timelocks):
+
+| # | Who / network | Action in the page | What to point at |
+| --- | --- | --- | --- |
+| 1 | Alice / Sepolia | Connect. Set 100 MST, 0.001 ETH, timelock 300, margin 120, then **Generate new secret** | the hashlock and both swap ids appear; the preimage stays hidden |
+| 2 | Alice / Sepolia | **Approve MST** | activity log: confirmed transaction with explorer link |
+| 3 | Alice / Sepolia | **Lock MST** | MST badge `Active`, countdown, "Verified the MST lock: 7/7 fields match" |
+| 4 | switch account in MetaMask to Bob | — | the header switches to `Bob`; the hashlock matches on both cards |
+| 5 | Bob / Arbitrum | **Lock ETH** | ETH badge `Active`; the ETH lock is verified too |
+| 6 | switch back to Alice | — | |
+| 7 | Alice / Arbitrum | **Claim ETH** | log: "Claimed the ETH. Preimage is now public"; the preimage cell shows it |
+| 8 | switch to Bob | — | |
+| 9 | Bob / Sepolia | **Claim MST** | both badges `Claimed`; the next action says the swap is complete |
+
+Open one transaction from each chain in the activity log to show the two explorers.
+
+**Scenario 2 — timeout recovery** (about 3 minutes with 120 s timelocks):
+
+1. **Reset**, then generate with timelock 120, margin 60.
+2. As Alice: **Approve MST**, **Lock MST**, then stop — do not lock the ETH.
+3. Point out the MST badge `Active` with its countdown, and that **Refund MST**
+   is disabled with the tooltip "only after Alice's deadline". The ETH card says
+   "not created".
+4. Wait until the countdown reads "expired … ago" (the page refreshes every 12 s;
+   **Refresh state** forces it).
+5. As Alice: **Refund MST** → badge `Refunded`; the next action suggests a reset.
+
+For the full failure path, lock both legs, let both deadlines pass, then refund
+the MST as Alice and the ETH as Bob.
+
+**Troubleshooting**:
+
+- *Wrong account*: the button is disabled and its tooltip names the account that
+  is needed; switch with MetaMask → Accounts (the page updates immediately).
+- *Rejected in MetaMask*: the log says so instead of crashing; nothing was sent.
+- *Contract refusal*: the log shows the custom error name (`SwapExpired`,
+  `SwapNotActive`, `InvalidPreimage`, …).
+- *Lost page state*: the swap is still on-chain. Take the ids from the `Locked`
+  events on the explorer and use the CLI:
+  `npm run status -- --erc20-swap-id 0x… --eth-swap-id 0x…` and
+  `npm run refund -- --erc20-swap-id 0x…`.
+- **Reset** only clears the page state; it never sends a transaction.
+
 ## Running it
 
 Prerequisites: Node.js 20+ and npm. Task B additionally needs RPC endpoints and
@@ -164,7 +259,7 @@ npx hardhat test
 
 On Windows, if PowerShell blocks `npx.ps1`, use `npx.cmd` instead of `npx`.
 The suite is offline: it deploys local tokens/escrows on the in-process Hardhat
-network. A clean run ends with `78 passing`.
+network. A clean run ends with `85 passing`.
 
 ## Deploying and operating on the testnets
 
@@ -277,7 +372,7 @@ npm run params             # prints SWAP_PREIMAGE / SWAP_HASHLOCK / both swap id
 
 ## Test coverage
 
-`npx hardhat test` → **78 passing**.
+`npx hardhat test` → **85 passing**.
 
 | Area | Tests |
 | --- | --- |
@@ -289,12 +384,20 @@ npm run params             # prints SWAP_PREIMAGE / SWAP_HASHLOCK / both swap id
 | B2 | full swap orchestration, transaction hashes/confirmations, parameter verification, asset movement, tampered-lock rejection |
 | B3 | per-chain state labels, valid actions, unknown swap, off-chain comparison |
 | B4 | stop-after-lock, claim refused after expiry, refund refused before expiry, refund refused after claim, both legs refunded and balances restored, duplicate claim refused |
+| C shared rules | hashlock derivation vs the contract convention, malformed preimages, id randomness, swap decoding, claim/refund boundaries, duration and timestamp formatting |
 | Utility | `.env` writer preserves comments and unrelated keys |
 
 The Task B tests run two escrows on the local Hardhat network and drive the same
 `lib/protocol.js` functions the CLIs use. The CLIs themselves were exercised
 end-to-end against two local nodes reporting chain ids 11155111 and 421614, so
 the deploy → swap → status → refund paths run unchanged offline.
+
+For Task C, the page was smoke-tested without a browser: the real `app.js` was
+executed against a stub DOM built from `index.html`, against the real local
+server and the live chains. That exercised boot, both-chain reads, secret
+generation, rendering and button gating, and confirmed that every referenced
+element id exists. The write path uses the same ABI and the same shared rules as
+the tested CLI flow.
 
 ## Notes and limitations
 
@@ -309,11 +412,9 @@ the deploy → swap → status → refund paths run unchanged offline.
 * A swap that is never claimed is recovered by its sender through `refund`; the
   contracts cannot push funds back on their own.
 
-## Next: Task C
+## What is still open
 
-The UI can call the same functions the scripts use (`lock`, `getSwap`,
-`isClaimable`, `isRefundable`, `claim`, `refund`) through a wallet, and read
-`.env`-style configuration from a build-time config file. The coordinator logic
-in `scripts/lib/protocol.js` — parameter verification, preimage extraction from
-the `Claimed` event and the valid-action checks — maps one-to-one onto the
-guided UI flow.
+Task C is implemented as above. The remaining project work is Task D (report and
+presentation) and Task E (live demonstration, 4 minutes: one successful swap and
+one timeout-recovery case — the runbook above covers both) and Task F (individual
+contribution table).

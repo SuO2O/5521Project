@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>COMP5521 · cross-chain HTLC swap</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title">
+        <h1>Cross-chain HTLC swap</h1>
+        <p>COMP5521 · MST on Ethereum Sepolia ⇄ ETH on Arbitrum Sepolia</p>
+      </div>
+      <div class="wallet">
+        <span id="wallet-status" class="pill">not connected</span>
+        <span id="network-status" class="pill muted">no network</span>
+        <button id="connect" class="primary">Connect MetaMask</button>
+        <button id="switch-sepolia" class="ghost">Sepolia</button>
+        <button id="switch-arbitrum" class="ghost">Arbitrum</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="config-warning" class="notice hidden"></div>
+
+      <section class="card">
+        <h2>1 · Secret and amounts</h2>
+        <p class="hint">
+          The preimage is a random 32-byte secret. Its keccak256 is the hashlock: the same value is
+          stored in both locks, and only a claim that reveals the preimage can release the asset.
+        </p>
+        <div class="grid inputs">
+          <label>MST amount <input id="mst-amount" type="text" inputmode="decimal" /></label>
+          <label>ETH amount <input id="eth-amount" type="text" inputmode="decimal" /></label>
+          <label>Timelock (seconds) <input id="timelock" type="number" min="60" step="30" /></label>
+          <label>MST margin (seconds) <input id="margin" type="number" min="60" step="30" /></label>
+        </div>
+        <div class="row">
+          <button id="generate" class="primary">Generate new secret</button>
+          <button id="refresh" class="ghost">Refresh state</button>
+          <button id="reset" class="ghost">Reset</button>
+        </div>
+        <dl class="kv">
+          <dt>Preimage</dt>
+          <dd>
+            <code id="preimage" class="secret">—</code>
+            <button id="reveal" class="link hidden">reveal</button>
+          </dd>
+          <dt>Hashlock</dt>
+          <dd><code id="hashlock">—</code></dd>
+          <dt>MST swap id</dt>
+          <dd><code id="mst-swap-id">—</code></dd>
+          <dt>ETH swap id</dt>
+          <dd><code id="eth-swap-id">—</code></dd>
+        </dl>
+      </section>
+
+      <section class="card highlight">
+        <h2>2 · Next action</h2>
+        <p id="next-action">Connect MetaMask to begin.</p>
+      </section>
+
+      <section class="grid legs">
+        <article class="card leg">
+          <h2>MST leg <span class="chain">Ethereum Sepolia</span></h2>
+          <p class="state" id="mst-state">not created</p>
+          <dl class="kv">
+            <dt>Amount</dt><dd id="mst-leg-amount">—</dd>
+            <dt>Sender → recipient</dt><dd id="mst-leg-roles">—</dd>
+            <dt>Deadline</dt><dd id="mst-leg-deadline">—</dd>
+            <dt>Hashlock match</dt><dd id="mst-leg-hashlock">—</dd>
+            <dt>Contract</dt><dd id="mst-leg-contract">—</dd>
+          </dl>
+          <p class="balances" id="mst-balances"></p>
+          <div class="row wrap">
+            <button id="approve-mst" class="ghost">Approve MST</button>
+            <button id="lock-mst" class="primary">Lock MST</button>
+            <button id="claim-mst" class="primary">Claim MST</button>
+            <button id="refund-mst" class="danger">Refund MST</button>
+          </div>
+          <p class="tx" id="mst-tx"></p>
+        </article>
+
+        <article class="card leg">
+          <h2>ETH leg <span class="chain">Arbitrum Sepolia</span></h2>
+          <p class="state" id="eth-state">not created</p>
+          <dl class="kv">
+            <dt>Amount</dt><dd id="eth-leg-amount">—</dd>
+            <dt>Sender → recipient</dt><dd id="eth-leg-roles">—</dd>
+            <dt>Deadline</dt><dd id="eth-leg-deadline">—</dd>
+            <dt>Hashlock match</dt><dd id="eth-leg-hashlock">—</dd>
+            <dt>Contract</dt><dd id="eth-leg-contract">—</dd>
+          </dl>
+          <p class="balances" id="eth-balances"></p>
+          <div class="row wrap">
+            <button id="lock-eth" class="primary">Lock ETH</button>
+            <button id="claim-eth" class="primary">Claim ETH</button>
+            <button id="refund-eth" class="danger">Refund ETH</button>
+          </div>
+          <p class="tx" id="eth-tx"></p>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>3 · Activity</h2>
+        <ol id="log"></ol>
+      </section>
+
+      <footer>
+        <p>
+          Local demo page. MetaMask signs every transaction; private keys are never sent to this page.
+          The local server exposes only public addresses and proxies read-only RPC calls.
+        </p>
+      </footer>
+    </main>
+
+    <script src="/vendor/ethers.umd.min.js"></script>
+    <script src="/shared/htlc-core.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
