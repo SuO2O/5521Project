@@ -98,6 +98,22 @@
     }
   }
 
+  async function disconnect() {
+    // EIP-2255 revocation: removes this site from MetaMask's connected sites.
+    // Older wallets may not support it; the page still forgets the account.
+    try {
+      await window.ethereum.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] });
+      log("info", "Disconnected. MetaMask no longer authorises this page.");
+    } catch {
+      log("info", "Disconnected here. To revoke fully, use MetaMask → Connected sites → remove this page.");
+    }
+    state.account = null;
+    state.signer = null;
+    state.walletProvider = null;
+    state.chainId = null;
+    render();
+  }
+
   async function switchNetwork(name) {
     const cfg = state.config.chains[name];
     try {
@@ -435,6 +451,7 @@
     renderLeg("eth");
     $("next-action").textContent = nextActionHint();
     $("connect").disabled = !window.ethereum || Boolean(state.account);
+    $("disconnect").classList.toggle("hidden", !state.account);
     $("refresh").disabled = state.busy;
 
     const locked = Boolean(chainHasSwap());
@@ -625,32 +642,39 @@
     if (!state.config.chains.sepolia.htlc || !state.config.chains.arbitrum.htlc) {
       return "Deploy both escrows first (npm run deploy), then restart the UI.";
     }
+
+    const me = roleFor(state.account);
+    const asRole = (role, sentence) => me === role
+      ? sentence
+      : `${capitalise(role)}'s step: switch MetaMask to ${capitalise(role)} (Accounts menu). ${sentence}`;
+
     const mst = state.observed.mst;
     const eth = state.observed.eth;
     if (!mst || !eth) return "Reading both chains...";
     if (mst.error || eth.error) return `Cannot read a chain: ${mst.error || eth.error}`;
     if (mst.swap.state === "None" && eth.swap.state === "None") {
-      return `Alice: approve ${state.swap.mstAmount} MST, then lock it on Sepolia (current account: ${roleLabel(state.account)}).`;
+      return asRole("alice", `Alice: approve ${state.swap.mstAmount} MST, then lock it on Sepolia.`);
     }
     if (mst.labels.claimable && eth.swap.state === "None") {
-      return "Bob: verify Alice's lock, switch MetaMask to Bob, then lock the ETH on Arbitrum.";
+      return asRole("bob", "Bob: verify Alice's lock, then lock the ETH on Arbitrum.");
     }
     if (eth.labels.claimable && mst.swap.state === "Active") {
-      return "Alice: claim the ETH. That publishes the preimage so Bob can claim the MST.";
+      return asRole("alice", "Alice: claim the ETH; that publishes the preimage so Bob can claim the MST.");
     }
     if (eth.swap.state === "Claimed" && mst.labels.claimable) {
-      return "Bob: claim the MST with the preimage revealed by Alice's ETH claim.";
+      return asRole("bob", "Bob: claim the MST with the preimage revealed by Alice's ETH claim.");
     }
     if (mst.swap.state === "Claimed" && eth.swap.state === "Claimed") {
       return "Swap complete: both legs are claimed. Press Reset to run another swap.";
     }
     if (mst.labels.refundable || eth.labels.refundable) {
-      const legs = [mst.labels.refundable ? "MST (Alice)" : null, eth.labels.refundable ? "ETH (Bob)" : null].filter(Boolean);
-      return `Timelock expired: ${legs.join(" and ")} can be refunded by its sender.`;
+      const legs = [mst.labels.refundable ? "the MST (as Alice)" : null, eth.labels.refundable ? "the ETH (as Bob)" : null].filter(Boolean);
+      return `Timelock expired: refund ${legs.join(" or ")} — switch the MetaMask account to the sender first.`;
     }
     if (mst.swap.state === "Refunded" || eth.swap.state === "Refunded") {
       return "This swap was (partly) refunded. Reset to run another swap.";
     }
+    if (!me) return "This account is neither Alice nor Bob. Switch to one of them in MetaMask.";
     return "Waiting for the next step.";
   }
 
@@ -658,6 +682,7 @@
 
   function wireEvents() {
     $("connect").addEventListener("click", connect);
+    $("disconnect").addEventListener("click", () => guard("Disconnect", disconnect));
     $("switch-sepolia").addEventListener("click", () => guard("Switch network", () => switchNetwork("sepolia")));
     $("switch-arbitrum").addEventListener("click", () => guard("Switch network", () => switchNetwork("arbitrum")));
     $("generate").addEventListener("click", generateSwap);

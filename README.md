@@ -180,7 +180,7 @@ Two reasons for the server instead of opening `index.html` directly:
 
 | Item | Where | What it does |
 | --- | --- | --- |
-| C1 wallet and network | header; `refreshWallet`, `switchNetwork` | connects MetaMask, shows the account and its role (Alice / Bob / unknown), switches to Sepolia or Arbitrum in one click, and adds the network to MetaMask if it is missing |
+| C1 wallet and network | header; `connect`, `disconnect`, `refreshWallet`, `switchNetwork` | connects MetaMask, shows the account and its role (Alice / Bob / unknown), offers a **Disconnect** button, switches to Sepolia or Arbitrum in one click, and adds the network to MetaMask if it is missing |
 | C2 setup and state | "Secret and amounts" and the two leg cards | balances (ETH on both chains, MST on Sepolia), escrow addresses linked to the explorers, swap ids, amounts, hashlock-match check, deadlines with live countdowns, and the MST approval |
 | C3 guided flow | "Next action" plus per-leg buttons | approve → lock MST → (Bob) lock ETH → (Alice) claim ETH → (Bob) claim MST; refunds become available only after the sender's deadline |
 | C4 feedback | activity log, badges, tooltips | pending → confirmed messages, decoded custom errors, transaction links, `Active` / `Claimed` / `Refunded` badges, last transaction per leg |
@@ -189,6 +189,40 @@ Buttons are gated like the CLI: disabled with a tooltip when the connected accou
 is wrong, the swap is not claimable, the timelock has not expired, or the
 allowance is already sufficient. Preimage, swap ids and amounts live in
 `localStorage`, so refreshing the page does not lose the swap.
+
+### Which account to connect, and how to switch
+
+The page has **one connection at a time** and always acts as the account MetaMask
+currently has selected — there is no separate "Alice login" and "Bob login".
+
+* **Start as Alice** (`ALICE_ADDRESS`): she generates the secret, approves and
+  locks the MST. If you connect as Bob first, nothing breaks — Alice's buttons are
+  disabled and the "Next action" line tells you to switch.
+* Order of accounts in the demo: **Alice** locks MST → **Bob** locks ETH →
+  **Alice** claims ETH → **Bob** claims MST.
+* **Switching account:** open MetaMask → click the account avatar (top right) →
+  choose the other account. The page updates immediately (`accountsChanged`); do
+  not press Connect again and do not reload.
+* **Undo the connection:** press **Disconnect** in the header. It calls
+  `wallet_revokePermissions` so MetaMask forgets this page. If your MetaMask
+  version does not support that call, the page still forgets the account and you
+  can revoke fully in MetaMask → ⋯ → **Connected sites** → remove
+  `127.0.0.1:8080`. Reloading the page reconnects automatically only while the
+  site is still authorised.
+* **Use one browser for both roles.** The preimage and swap ids are kept in that
+  browser's `localStorage`; another browser would not know them. (If you ever need
+  that, recover with the CLI using the ids from the on-chain `Locked` events.)
+
+### Demo quick start (successful swap)
+
+```text
+npm run ui   ->   open http://127.0.0.1:8080
+1. MetaMask on Alice  -> Connect -> Generate new secret (timelock 300)
+2. Approve MST -> Lock MST
+3. MetaMask -> Bob    -> Lock ETH
+4. MetaMask -> Alice  -> Claim ETH     (preimage becomes public)
+5. MetaMask -> Bob    -> Claim MST     (both legs Claimed)
+```
 
 ### Demo runbook
 
@@ -199,8 +233,9 @@ allowance is already sufficient. Preimage, swap ids and amounts live in
    and `BOB_ADDRESS` in `.env` — the page labels them *Alice* and *Bob*.
    - Alice needs Sepolia ETH (approve, lock, claim) and Arbitrum ETH (claim gas).
    - Bob needs Arbitrum ETH (the 0.001 ETH lock plus gas) and Sepolia ETH (claim gas).
-3. `npm run ui`, then open <http://127.0.0.1:8080>. The header should say
-   "not connected"; both chains are already read.
+3. `npm run ui`, then open <http://127.0.0.1:8080>. The header shows either
+   "not connected" or the account MetaMask last authorised for this page (the page
+   reconnects automatically); both chains are already read.
 
 **Scenario 1 — successful atomic swap** (about 2 minutes with 300 s timelocks):
 
@@ -235,7 +270,8 @@ the MST as Alice and the ETH as Bob.
 **Troubleshooting**:
 
 - *Wrong account*: the button is disabled and its tooltip names the account that
-  is needed; switch with MetaMask → Accounts (the page updates immediately).
+  is needed; switch with MetaMask → Accounts (the page updates immediately), or
+  press **Disconnect** and connect again with the other account.
 - *Rejected in MetaMask*: the log says so instead of crashing; nothing was sent.
 - *Contract refusal*: the log shows the custom error name (`SwapExpired`,
   `SwapNotActive`, `InvalidPreimage`, …).
