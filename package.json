@@ -7,7 +7,15 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",
-    "params": "node scripts/generateSwapParams.js"
+    "params": "node scripts/generateSwapParams.js",
+    "check": "node scripts/checkConfig.js",
+    "deploy": "npm run deploy:sepolia && npm run deploy:arbitrum",
+    "deploy:sepolia": "node scripts/deployERC20HTLC.js",
+    "deploy:arbitrum": "node scripts/deployETHHTLC.js",
+    "swap": "node scripts/swap.js",
+    "status": "node scripts/status.js",
+    "claim": "node scripts/claim.js",
+    "refund": "node scripts/refund.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
@@ -18,13 +26,13 @@
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@nomicfoundation/hardhat-verify": "^2.1.1",
     "chai": "^4.5.0",
-    "ethers": "^6.15.0",
     "hardhat": "^2.26.3",
     "hardhat-gas-reporter": "^2.3.0",
     "solidity-coverage": "^0.8.16"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
-    "dotenv": "^17.2.2"
+    "dotenv": "^17.2.2",
+    "ethers": "^6.15.0"
   }
 }
