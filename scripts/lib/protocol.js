@@ -4,15 +4,17 @@
 // (scripts/lib/chain.js). Nothing here makes a contract call to the other chain:
 // coordination happens by reading public state and by passing the same preimage
 // between two independent escrows.
-const { randomBytes } = require("node:crypto");
 const { ethers } = require("ethers");
 
+const core = require("../../shared/htlc-core").create(ethers);
 const { ROLES, shortHex } = require("./config");
 const { classify, decodeSwap, equalBytes32, isSameAddress } = require("./swapState");
 const { findEvent, sendTransaction } = require("./tx");
 const { formatDuration, formatTimestamp } = require("./ui");
 
 const MIN_GAS_WEI = ethers.parseEther("0.0002");
+
+const { hashlockFor, isValidBytes32, randomBytes32 } = core;
 
 /**
  * Raised when the requested action is not valid for the current on-chain state
@@ -29,22 +31,6 @@ class ProtocolRefusal extends Error {
 
 function refuse(message) {
   throw new ProtocolRefusal(message);
-}
-
-function randomBytes32() {
-  return `0x${randomBytes(32).toString("hex")}`;
-}
-
-function isValidBytes32(value) {
-  return /^0x[0-9a-fA-F]{64}$/.test(String(value));
-}
-
-/** The contracts check keccak256(abi.encodePacked(preimage)), i.e. 32 raw bytes. */
-function hashlockFor(preimage) {
-  if (!isValidBytes32(preimage)) {
-    throw new Error(`The preimage must be 32 bytes of hex (0x + 64 characters), got "${preimage}".`);
-  }
-  return ethers.keccak256(ethers.solidityPacked(["bytes32"], [preimage]));
 }
 
 function newSwapId() {

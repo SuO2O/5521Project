@@ -1,5 +1,6 @@
 // Plain-ASCII console helpers shared by the Part B scripts.
 // ASCII only, so output renders in any Windows terminal.
+const { formatDuration, formatTimestamp } = require("../../shared/htlc-core");
 
 function heading(title) {
   console.log(`\n${title}`);
@@ -31,22 +32,6 @@ function table(headers, rows, indent = "  ") {
   console.log(render(headers));
   console.log(indent + widths.map((width) => "-".repeat(width)).join("  "));
   for (const row of rows) console.log(render(row));
-}
-
-function formatDuration(seconds) {
-  const abs = Math.abs(Math.round(seconds));
-  const hours = Math.floor(abs / 3600);
-  const minutes = Math.floor((abs % 3600) / 60);
-  const secs = abs % 60;
-  const parts = [];
-  if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0) parts.push(`${minutes}m`);
-  if (hours === 0 && (minutes === 0 || secs > 0)) parts.push(`${secs}s`);
-  return parts.join(" ");
-}
-
-function formatTimestamp(unixSeconds) {
-  return new Date(unixSeconds * 1000).toISOString().replace(".000Z", "Z");
 }
 
 function formatWindow(labels) {
